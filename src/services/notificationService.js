@@ -1,6 +1,6 @@
 // src/services/notificationService.js
 // ─────────────────────────────────────────────────────────────────────────────
-
+//  WEB PUSH — inbound WhatsApp messages
 //
 //  This is the web equivalent of SkyUpWAFull's (React Native) notificationService.js.
 //  @react-native-firebase/messaging + @notifee/react-native (native SDKs, no
