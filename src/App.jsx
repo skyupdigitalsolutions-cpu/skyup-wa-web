@@ -5,6 +5,7 @@ import {loadTokenFromStorage} from './store/slices/authSlice';
 import {setupNotifications, setNavigate} from './services/notificationService';
 import IOSInstallBanner from './components/IOSInstallBanner';
 import BadgeManager from './components/BadgeManager';
+import DebugOverlay from './components/DebugOverlay';
 
 import LoginPage from './pages/LoginPage';
 import InboxPage from './pages/InboxPage';
@@ -62,6 +63,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <DebugOverlay />
       <NotificationsGate />
       <BadgeManager />
       <ConditionalIOSBanner />
