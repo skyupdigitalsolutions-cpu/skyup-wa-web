@@ -41,6 +41,32 @@ messaging.onBackgroundMessage(payload => {
     data,
   };
   self.registration.showNotification(title, options);
+
+  // Best-effort icon badge while the app is fully closed. This can only
+  // approximate "how many push notifications are currently showing" (via
+  // getNotifications()) rather than the app's real unread count, since a
+  // service worker has no access to Redux state — the foreground
+  // BadgeManager component replaces this with the accurate total the
+  // moment the app is actually opened.
+  if ('setAppBadge' in self.navigator) {
+    self.registration.getNotifications().then(notifications => {
+      self.navigator.setAppBadge(notifications.length).catch(() => {});
+    });
+  }
+});
+
+// Keep the approximate badge count in sync as notifications are dismissed
+// individually (e.g. swiped away from the notification tray) without ever
+// opening the app.
+self.addEventListener('notificationclose', () => {
+  if (!('setAppBadge' in self.navigator)) return;
+  self.registration.getNotifications().then(notifications => {
+    if (notifications.length > 0) {
+      self.navigator.setAppBadge(notifications.length).catch(() => {});
+    } else {
+      self.navigator.clearAppBadge().catch(() => {});
+    }
+  });
 });
 
 self.addEventListener('notificationclick', event => {

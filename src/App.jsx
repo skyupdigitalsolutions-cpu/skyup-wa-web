@@ -3,6 +3,8 @@ import {BrowserRouter, Routes, Route, Navigate, useNavigate} from 'react-router-
 import {useDispatch, useSelector} from 'react-redux';
 import {loadTokenFromStorage} from './store/slices/authSlice';
 import {setupNotifications, setNavigate} from './services/notificationService';
+import IOSInstallBanner from './components/IOSInstallBanner';
+import BadgeManager from './components/BadgeManager';
 
 import LoginPage from './pages/LoginPage';
 import InboxPage from './pages/InboxPage';
@@ -44,6 +46,13 @@ function NotificationsGate() {
   return null;
 }
 
+// Only shown once logged in — no point telling someone to enable
+// notifications before they even have an account to notify.
+function ConditionalIOSBanner() {
+  const token = useSelector(s => s.auth.token);
+  return token ? <IOSInstallBanner /> : null;
+}
+
 export default function App() {
   const dispatch = useDispatch();
 
@@ -54,6 +63,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <NotificationsGate />
+      <BadgeManager />
+      <ConditionalIOSBanner />
       <Routes>
         <Route path="/login" element={<LoginRoute />} />
         <Route path="/" element={<PrivateRoute><InboxPage /></PrivateRoute>} />
