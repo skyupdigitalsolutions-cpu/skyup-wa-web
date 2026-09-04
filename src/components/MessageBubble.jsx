@@ -58,8 +58,13 @@ export default function MessageBubble({message}) {
     setMediaError(false);
     try {
       await whatsappAPI.refreshMedia(message._id);
-    } catch {
+    } catch (e) {
       setMediaError(true);
+      // Surface the backend's actual reason (e.g. "WhatsApp refused the
+      // download — access token expired") instead of silently failing —
+      // without this, retry looked like it "did nothing" with no way to
+      // tell what's actually wrong.
+      alert(e?.response?.data?.error || 'Could not reload this media. Please try again.');
     } finally {
       setRetrying(false);
     }
