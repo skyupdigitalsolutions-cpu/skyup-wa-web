@@ -26,6 +26,10 @@ export const SOCKET_EVENTS = {
   WA_MESSAGE: 'wa_message',
   WA_MESSAGE_STATUS: 'wa_message_status',
   WA_MEDIA_READY: 'wa_media_ready',
+  // FIX (stale employee name after deletion): backend emits this when a
+  // deleted employee's dangling assignedAgent reference gets cleared on
+  // their conversations.
+  WA_CONVERSATION_REASSIGNED: 'wa_conversation_reassigned',
 };
 
 export const CONV_STATUS = {
