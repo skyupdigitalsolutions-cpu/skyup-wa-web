@@ -7,20 +7,51 @@ import {fetchConversations} from '../store/slices/conversationsSlice';
 import {COLORS} from '../constants';
 import {normalizePhoneToE164, formatDisplayPhone} from '../utils';
 
-const QUICK_TEMPLATES = ['crm_followup_leads', 'crm_greeting', 'crm_callback_request'];
+// FIX: this page previously used a hardcoded QUICK_TEMPLATES list — the same
+// bug already found and fixed elsewhere in this app (TemplatePickerPage and
+// BlastPage both correctly fetch real approved templates from the backend).
+// A hardcoded list risks offering a template that isn't actually approved
+// (send fails) or missing ones that are. Now fetches the real list the same
+// way, with the same hardcoded set kept ONLY as an offline/error fallback so
+// this screen never becomes totally unusable if that fetch fails.
+const FALLBACK_TEMPLATES = ['crm_followup_leads', 'crm_greeting', 'crm_callback_request'];
 
 export default function NewConversationPage() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const [tab, setTab] = useState('lead');
   const [phone, setPhone] = useState('');
-  const [template, setTemplate] = useState(QUICK_TEMPLATES[0]);
+  const [templates, setTemplates] = useState(FALLBACK_TEMPLATES);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [template, setTemplate] = useState(FALLBACK_TEMPLATES[0]);
   const [leads, setLeads] = useState([]);
   const [filteredLeads, setFilteredLeads] = useState([]);
   const [leadSearch, setLeadSearch] = useState('');
   const [selectedLead, setSelectedLead] = useState(null);
   const [loadingLeads, setLoadingLeads] = useState(false);
   const [starting, setStarting] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      setTemplatesLoading(true);
+      try {
+        const res = await whatsappAPI.getTemplates();
+        const approved = (res.data?.templates || []).filter(t => t.status === 'APPROVED');
+        if (approved.length > 0) {
+          const names = approved.map(t => t.name);
+          setTemplates(names);
+          setTemplate(names[0]);
+        }
+        // If none came back / not approved yet, silently keep FALLBACK_TEMPLATES
+        // rather than leaving the screen with an empty, unusable list.
+      } catch {
+        // Keep FALLBACK_TEMPLATES — no alert here, this fetch failing
+        // shouldn't block someone from starting a conversation at all.
+      } finally {
+        setTemplatesLoading(false);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -166,7 +197,8 @@ export default function NewConversationPage() {
           <div className="filter-label" style={{textTransform: 'uppercase', fontWeight: 700, margin: 0, marginBottom: 10}}>
             Template (required)
           </div>
-          {QUICK_TEMPLATES.map(t => (
+          {templatesLoading && <div className="spinner" style={{margin: '10px auto'}} />}
+          {templates.map(t => (
             <div
               key={t}
               onClick={() => setTemplate(t)}
