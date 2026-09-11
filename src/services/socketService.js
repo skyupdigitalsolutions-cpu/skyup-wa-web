@@ -80,6 +80,14 @@ export const socketService = {
     socket.on(SOCKET_EVENTS.WA_MEDIA_READY, payload => {
       _store?.dispatch({type: 'messages/socketMediaReady', payload});
     });
+
+    // FIX (stale employee name after deletion): see the matching backend
+    // change (deleteCompanyUser now clears dangling assignedAgent refs and
+    // emits this) and the conversationReassigned reducer in
+    // conversationsSlice.js.
+    socket.on(SOCKET_EVENTS.WA_CONVERSATION_REASSIGNED, payload => {
+      _store?.dispatch({type: 'conversations/conversationReassigned', payload});
+    });
   },
 
   _joinRooms() {
