@@ -123,6 +123,17 @@ const conversationsSlice = createSlice({
         conv.status = action.payload.status;
       }
     },
+    // FIX (stale employee name after deletion): backend clears the dangling
+    // assignedAgent reference and pushes this event when an employee whose
+    // name was still showing on open conversations gets deleted — without
+    // this, an already-loaded Inbox tab had no signal to update and would
+    // keep showing the deleted employee's name until the next full refetch.
+    conversationReassigned(state, action) {
+      const conv = state.items.find(
+        c => c._id === action.payload.conversationId,
+      );
+      if (conv) conv.assignedAgent = action.payload.assignedAgent;
+    },
   },
   extraReducers: builder => {
     builder.addCase(fetchConversations.pending, state => {
@@ -159,6 +170,6 @@ const conversationsSlice = createSlice({
   },
 });
 
-export const {socketNewMessage, clearUnread, updateSession} =
+export const {socketNewMessage, clearUnread, updateSession, conversationReassigned} =
   conversationsSlice.actions;
 export default conversationsSlice.reducer;
