@@ -53,6 +53,8 @@ export default function MessageBubble({message}) {
   const [mediaError, setMediaError] = useState(false);
   const [retrying, setRetrying] = useState(false);
 
+  const [downloading, setDownloading] = useState(false);
+
   const handleRetry = async () => {
     setRetrying(true);
     setMediaError(false);
@@ -67,6 +69,39 @@ export default function MessageBubble({message}) {
       alert(e?.response?.data?.error || 'Could not reload this media. Please try again.');
     } finally {
       setRetrying(false);
+    }
+  };
+
+  // FIX: previously, images had NO download affordance at all (couldn't
+  // even open them), and document/audio/video only linked with
+  // `target="_blank"` — which just VIEWS the file (browsers render
+  // images/PDFs/videos inline rather than saving them), it doesn't actually
+  // download it. This fetches the file as a blob and triggers a real
+  // "Save As", which works regardless of the file's Content-Type — every
+  // media type gets a genuine download now, not just documents.
+  const handleDownload = async (url, suggestedName) => {
+    if (!url || downloading) return;
+    setDownloading(true);
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const blob = await resp.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = suggestedName || 'download';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (e) {
+      // Falls back to opening the URL directly — at least gives the user
+      // something to work with (e.g. right-click → Save As) instead of a
+      // silent failure, if the blob fetch itself is blocked (rare, but
+      // possible for a misconfigured CORS response).
+      window.open(url, '_blank');
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -89,13 +124,27 @@ export default function MessageBubble({message}) {
         );
       case 'image':
         if (message.mediaUrl && !mediaError) {
+          const {name: imgName} = fileInfoFromUrl(message.mediaUrl);
           return (
-            <img
-              src={message.mediaUrl}
-              alt=""
-              className="media-image"
-              onError={() => setMediaError(true)}
-            />
+            <div style={{position: 'relative'}}>
+              <img
+                src={message.mediaUrl}
+                alt=""
+                className="media-image"
+                onError={() => setMediaError(true)}
+              />
+              <button
+                onClick={() => handleDownload(message.mediaUrl, imgName)}
+                disabled={downloading}
+                title="Download image"
+                style={{
+                  position: 'absolute', top: 6, right: 6, background: 'rgba(0,0,0,0.55)',
+                  border: 'none', borderRadius: 20, width: 30, height: 30,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                }}>
+                {downloading ? <div className="spinner" style={{width: 14, height: 14}} /> : <Download size={15} color="#fff" />}
+              </button>
+            </div>
           );
         }
         return (
@@ -118,10 +167,13 @@ export default function MessageBubble({message}) {
             className="doc-row"
             onClick={() => {
               if (notReady) handleRetry();
-              else window.open(message.mediaUrl, '_blank');
+              // FIX: was window.open(), which just VIEWS the file — browsers
+              // render PDFs/images inline instead of saving them. Downloads
+              // the actual file now, same as every other media type.
+              else handleDownload(message.mediaUrl, displayName);
             }}
-            style={{cursor: retrying ? 'default' : 'pointer'}}>
-            {retrying ? <div className="spinner" style={{width: 24, height: 24}} /> : <FileText size={30} color={COLORS.textSecondary} className="doc-icon" />}
+            style={{cursor: (retrying || downloading) ? 'default' : 'pointer'}}>
+            {(retrying || downloading) ? <div className="spinner" style={{width: 24, height: 24}} /> : <FileText size={30} color={COLORS.textSecondary} className="doc-icon" />}
             <div style={{flex: 1, minWidth: 0}}>
               <div style={{fontSize: 14, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}
                    title={displayName}>
@@ -135,20 +187,20 @@ export default function MessageBubble({message}) {
                   }}>{ext}</span>
                 )}
                 <span style={{fontSize: 11, color: COLORS.textMuted}}>
-                  {notReady ? (retrying ? 'Processing…' : 'Tap to retry loading') : (message.mediaMimeType || 'Tap to open')}
+                  {notReady ? (retrying ? 'Processing…' : 'Tap to retry loading') : downloading ? 'Downloading…' : (message.mediaMimeType || 'Tap to download')}
                 </span>
               </div>
             </div>
-            {!retrying && <Download size={18} color={COLORS.textSecondary} />}
+            {!retrying && !downloading && <Download size={18} color={COLORS.textSecondary} />}
           </div>
         );
       }
       case 'audio': {
         const audioNotReady = isUnmirroredMediaUrl(message.mediaUrl);
         return (
-          <div className="doc-row">
+          <div className="doc-row" style={{alignItems: 'center'}}>
             <Music size={26} color={COLORS.textSecondary} />
-            <div>
+            <div style={{flex: 1, minWidth: 0}}>
               <div style={{fontSize: 14}}>Voice Message</div>
               {audioNotReady ? (
                 <button
@@ -158,25 +210,53 @@ export default function MessageBubble({message}) {
                   {retrying ? 'Processing…' : 'Tap to retry loading'}
                 </button>
               ) : (
-                <a href={message.mediaUrl} target="_blank" rel="noreferrer" style={{fontSize: 12, color: COLORS.primaryDark}}>
-                  Tap to play
-                </a>
+                // FIX: was a plain link opening a new tab to "play" (browser-
+                // dependent, often just re-downloads or shows a bare player
+                // page). A real inline player is better UX, and it's now
+                // paired with an explicit download button below so the file
+                // is always genuinely downloadable too, not just playable.
+                <audio controls src={message.mediaUrl} style={{height: 32, maxWidth: 220}} />
               )}
             </div>
+            {!audioNotReady && (
+              <button
+                onClick={() => handleDownload(message.mediaUrl, 'voice-message.ogg')}
+                disabled={downloading}
+                title="Download audio"
+                style={{background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0}}>
+                {downloading ? <div className="spinner" style={{width: 16, height: 16}} /> : <Download size={18} color={COLORS.textSecondary} />}
+              </button>
+            )}
           </div>
         );
       }
       case 'video': {
         const videoNotReady = isUnmirroredMediaUrl(message.mediaUrl);
+        if (videoNotReady) {
+          return (
+            <div className="doc-row" onClick={handleRetry} style={{cursor: retrying ? 'default' : 'pointer'}}>
+              <Video size={26} color={COLORS.textSecondary} />
+              <span style={{fontSize: 14}}>{retrying ? 'Processing…' : 'Tap to retry loading'}</span>
+            </div>
+          );
+        }
+        // FIX: was window.open() — just VIEWS the video in a new tab, not a
+        // real download. Inline player for viewing + explicit download
+        // button, matching the same pattern as the audio fix above.
         return (
-          <div
-            className="doc-row"
-            onClick={() => (videoNotReady ? handleRetry() : window.open(message.mediaUrl, '_blank'))}
-            style={{cursor: 'pointer'}}>
-            <Video size={26} color={COLORS.textSecondary} />
-            <span style={{fontSize: 14}}>
-              {videoNotReady ? (retrying ? 'Processing…' : 'Tap to retry loading') : 'Video — Tap to open'}
-            </span>
+          <div>
+            <video controls src={message.mediaUrl} style={{maxWidth: '100%', borderRadius: 8, display: 'block'}} />
+            <button
+              onClick={() => handleDownload(message.mediaUrl, 'video.mp4')}
+              disabled={downloading}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, marginTop: 6,
+                background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                fontSize: 12, color: COLORS.primaryDark,
+              }}>
+              {downloading ? <div className="spinner" style={{width: 14, height: 14}} /> : <Download size={14} />}
+              {downloading ? 'Downloading…' : 'Download video'}
+            </button>
           </div>
         );
       }
@@ -213,6 +293,17 @@ export default function MessageBubble({message}) {
   return (
     <div className={`msg-wrapper ${isOutbound ? 'out' : 'in'}`}>
       <div className={`bubble ${isOutbound ? 'out' : 'in'} ${message._optimistic ? 'optimistic' : ''}`}>
+        {/* FIX: outbound messages never showed WHO sent them — every "sent"
+            bubble looked identical whether it was the current user or a
+            teammate who'd handled this lead before them. The data
+            (message.sentBy) was already coming from the backend; it just
+            wasn't rendered here. Matches the same fix applied to the admin
+            and employee WhatsApp pages in the main CRM frontend. */}
+        {isOutbound && message.sentBy?.name && (
+          <div style={{fontSize: 11, fontWeight: 700, color: COLORS.primaryDark, marginBottom: 3}}>
+            {message.sentBy.name}
+          </div>
+        )}
         {renderContent()}
         {message.editedAt && <div style={{fontSize: 11, color: COLORS.textMuted, fontStyle: 'italic'}}>edited</div>}
         <div className="bubble-meta">
