@@ -29,10 +29,21 @@ api.interceptors.request.use(config => {
 });
 
 // Handle 401 - logout
+// FIX (random auto-logout bug): only treat this as "your session is
+// genuinely invalid" if the FAILING request actually had a token attached.
+// A 401 on a request that went out with NO Authorization header just means
+// "you weren't logged in for this call" — which, before the App.jsx
+// render-gating fix, could happen to a request that fired before the stored
+// token had even loaded yet. Logging out (and wiping localStorage) in that
+// case destroyed an otherwise-valid session over a false alarm. Only a 401
+// on a request that DID carry a token means the token itself was rejected
+// as invalid/expired, which is the only case that should actually log
+// someone out.
 api.interceptors.response.use(
   response => response,
   error => {
-    if (error.response?.status === 401) {
+    const hadToken = !!error.config?.headers?.Authorization;
+    if (error.response?.status === 401 && hadToken) {
       _store?.dispatch({type: 'auth/logout'});
     }
     return Promise.reject(error);
@@ -47,6 +58,16 @@ export const authAPI = {
   logout: () => api.post('/auth/logout'),
   updateDevice: payload => api.patch('/auth/update-device', payload),
   updateAdminDevice: payload => api.patch('/admin/update-device', payload),
+};
+
+// FIX (feature gap): super admin login is a completely separate, two-step
+// flow from regular login — email/password sends an OTP to the super
+// admin's email; a second call with that OTP returns the actual token.
+// There was previously no way to reach this from the web app at all.
+export const superAdminAPI = {
+  login: (email, password) => api.post('/superadmin/login', {email, password}),
+  verifyOtp: (email, otp) => api.post('/superadmin/verify-otp', {email, otp}),
+  resendOtp: email => api.post('/superadmin/resend-otp', {email}),
 };
 
 // ── WhatsApp API ──────────────────────────────────────────────────────────────
