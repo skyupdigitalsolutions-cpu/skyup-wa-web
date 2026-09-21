@@ -9,6 +9,15 @@ function notifyListeners(status) {
   _listeners.forEach(fn => fn(status));
 }
 
+// FIX (Bug 5): determine whether the user is currently viewing a specific
+// conversation so the slice can skip the unread-count increment for messages
+// that arrive while the chat is already open.
+function isViewingConversation(conversationId) {
+  if (typeof document === 'undefined') return false;
+  if (document.visibilityState !== 'visible') return false;
+  return window.location.pathname === `/chat/${conversationId}`;
+}
+
 export const socketService = {
   injectStore(store) {
     _store = store;
@@ -69,7 +78,14 @@ export const socketService = {
     });
 
     socket.on(SOCKET_EVENTS.WA_MESSAGE, payload => {
-      _store?.dispatch({type: 'conversations/socketNewMessage', payload});
+      // FIX (Bug 5): if the user is actively viewing this conversation,
+      // pass skipUnread so the slice doesn't bump the unread counter.
+      // The message content still updates (lastMessage, lastMessageAt, status).
+      const skipUnread = isViewingConversation(payload.conversationId);
+      _store?.dispatch({
+        type: 'conversations/socketNewMessage',
+        payload: {...payload, skipUnread},
+      });
       _store?.dispatch({type: 'messages/socketNewMessage', payload});
     });
 
