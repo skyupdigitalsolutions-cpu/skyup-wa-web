@@ -74,9 +74,21 @@ const conversationsSlice = createSlice({
     error: null,
   },
   reducers: {
+    // FIX (Bug 5): socketService passes `skipUnread: true` when the user is
+    // currently viewing this conversation, so we update lastMessage/time/status
+    // without incrementing the unread counter. Without this, opening a chat
+    // and receiving a new message still bumps the badge and shows the
+    // conversation as unread when you navigate back to the Inbox.
     socketNewMessage(state, action) {
-      const {conversationId, message, contactName, leadName, sessionExpiresAt} =
-        action.payload;
+      const {
+        conversationId,
+        message,
+        contactName,
+        leadName,
+        sessionExpiresAt,
+        skipUnread,         // ← injected by socketService when chat is active
+      } = action.payload;
+
       const idx = state.items.findIndex(c => c._id === conversationId);
       if (idx !== -1) {
         const conv = state.items[idx];
@@ -85,7 +97,10 @@ const conversationsSlice = createSlice({
             ? message.body
             : capitalize(message.messageType);
         conv.lastMessageAt = message.waTimestamp || new Date().toISOString();
-        conv.unreadCount = (conv.unreadCount || 0) + 1;
+        // Only bump the count if the user isn't already reading this chat.
+        if (!skipUnread) {
+          conv.unreadCount = (conv.unreadCount || 0) + 1;
+        }
         conv.status = 'waiting';
         if (sessionExpiresAt) conv.sessionExpiresAt = sessionExpiresAt;
         state.items = sortByTime(state.items);
@@ -100,7 +115,9 @@ const conversationsSlice = createSlice({
               ? message.body
               : capitalize(message.messageType),
           lastMessageAt: message.waTimestamp || new Date().toISOString(),
-          unreadCount: 1,
+          // Still start at 0 if the chat for this brand-new conversation is
+          // somehow already open (edge case, but consistent).
+          unreadCount: skipUnread ? 0 : 1,
           sessionExpiresAt: sessionExpiresAt || null,
           lead: action.payload.leadId
             ? {_id: action.payload.leadId, name: leadName}
@@ -110,10 +127,7 @@ const conversationsSlice = createSlice({
         state.items = sortByTime([newConv, ...state.items]);
       }
     },
-    clearUnread(state, action) {
-      const conv = state.items.find(c => c._id === action.payload);
-      if (conv) conv.unreadCount = 0;
-    },
+
     updateSession(state, action) {
       const conv = state.items.find(
         c => c._id === action.payload.conversationId,
@@ -123,6 +137,7 @@ const conversationsSlice = createSlice({
         conv.status = action.payload.status;
       }
     },
+
     // FIX (stale employee name after deletion): backend clears the dangling
     // assignedAgent reference and pushes this event when an employee whose
     // name was still showing on open conversations gets deleted — without
@@ -170,6 +185,6 @@ const conversationsSlice = createSlice({
   },
 });
 
-export const {socketNewMessage, clearUnread, updateSession, conversationReassigned} =
+export const {socketNewMessage, updateSession, conversationReassigned} =
   conversationsSlice.actions;
 export default conversationsSlice.reducer;
