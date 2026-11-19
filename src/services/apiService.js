@@ -119,6 +119,17 @@ export const whatsappAPI = {
   getLeadSources: () => api.get('/whatsapp/leads/sources'),
 };
 
+// ── Daily inbox report (admin: whole company, agent: own chats) ──────────────
+export const inboxReportAPI = {
+  get: params => api.get('/whatsapp/reports/inbox', {params}),
+  downloadCsv: params =>
+    api.get('/whatsapp/reports/inbox', {
+      params: {...params, format: 'csv'},
+      responseType: 'blob',
+      timeout: 120000,
+    }),
+};
+
 // ── Nurture report (admin) ────────────────────────────────────────────────────
 export const nurtureAPI = {
   getReport: (params = {}) => api.get('/nurture/report', {params}),
