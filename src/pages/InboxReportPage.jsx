@@ -142,11 +142,11 @@ export default function InboxReportPage() {
                 <div>No WhatsApp messages in this range.</div>
               </div>
             ) : data.conversations.map(c => (
-              <div key={c.conversationId} className="log-row" style={{cursor: 'pointer'}} onClick={() => navigate(`/chat/${c.conversationId}`, {state: {contactName: c.contact || `+${c.phone}`}})}>
+              <div key={c.conversationId} className="log-row" style={{cursor: 'pointer'}} onClick={() => navigate(`/chat/${c.conversationId}`, {state: {contactName: c.contact || c.phone}})}>
                 <span className="log-dot" style={{background: c.unanswered ? COLORS.statusWaiting : COLORS.accent}} />
                 <div style={{flex: 1, minWidth: 0}}>
                   <div style={{fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
-                    {c.contact || `+${c.phone}`}
+                    {c.contact || c.phone}
                   </div>
                   <div style={{fontSize: 11, color: COLORS.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
                     {c.received} in · {c.sent} out{c.assignedAgent ? ` · ${c.assignedAgent}` : ''} — {c.lastMessage}
