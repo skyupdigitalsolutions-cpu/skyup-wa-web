@@ -2,7 +2,7 @@
 import React, {useEffect, useState, useMemo} from 'react';
 import {useDispatch, useSelector} from 'react-redux';
 import {useNavigate} from 'react-router-dom';
-import {BarChart3, Megaphone, SquarePen, AlertTriangle, Lock, MessageCircle, User, Paperclip} from 'lucide-react';
+import {BarChart3, FileDown, Megaphone, SquarePen, AlertTriangle, Lock, MessageCircle, User, Paperclip} from 'lucide-react';
 import {fetchConversations} from '../store/slices/conversationsSlice';
 import {logoutThunk} from '../store/slices/authSlice';
 import {socketService} from '../services/socketService';
@@ -105,6 +105,7 @@ export default function InboxPage() {
           {totalUnread > 0 && <div style={{fontSize: 12, color: 'rgba(255,255,255,0.7)'}}>{totalUnread} unread</div>}
         </div>
         <div className="header-actions">
+          <button className="icon-btn" onClick={() => navigate('/inbox-report')} title="Inbox Report"><FileDown size={18} /></button>
           {isAdmin && <button className="icon-btn" onClick={() => navigate('/nurture-report')} title="Nurture Report"><BarChart3 size={18} /></button>}
           {isAdmin && <button className="icon-btn" onClick={() => navigate('/blast')} title="Blast"><Megaphone size={18} /></button>}
           {isAdmin && <button className="icon-btn" onClick={() => navigate('/new-conversation')} title="New Conversation"><SquarePen size={18} /></button>}
