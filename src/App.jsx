@@ -14,6 +14,7 @@ import NewConversationPage from './pages/NewConversationPage';
 import TemplatePickerPage from './pages/TemplatePickerPage';
 import BlastPage from './pages/BlastPage';
 import NurtureReportPage from './pages/NurtureReportPage';
+import InboxReportPage from './pages/InboxReportPage';
 
 function PrivateRoute({children}) {
   const token = useSelector(s => s.auth.token);
@@ -75,6 +76,7 @@ export default function App() {
         <Route path="/template-picker" element={<PrivateRoute><TemplatePickerPage /></PrivateRoute>} />
         <Route path="/blast" element={<PrivateRoute><BlastPage /></PrivateRoute>} />
         <Route path="/nurture-report" element={<PrivateRoute><NurtureReportPage /></PrivateRoute>} />
+        <Route path="/inbox-report" element={<PrivateRoute><InboxReportPage /></PrivateRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
